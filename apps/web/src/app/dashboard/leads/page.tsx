@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import LeadsFilters from '@/components/leads/LeadsFilters';
 import LeadsTable from '@/components/leads/LeadsTable';
+import { useLeads } from '@/hooks/useLeads';
 
 interface Lead {
   id: string;
@@ -27,9 +28,8 @@ interface FilterState {
 
 export default function LeadsPage() {
   const router = useRouter();
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const { leads: apiLeads, loading, error } = useLeads();
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -46,81 +46,11 @@ export default function LeadsPage() {
       router.push('/');
       return;
     }
-
-    fetchLeads(token);
   }, [router]);
 
-  const fetchLeads = async (token: string) => {
-    try {
-      setLoading(true);
-
-      // Mock data para desenvolvimento
-      const mockLeads: Lead[] = [
-        {
-          id: 'lead-1',
-          fullName: 'João Silva',
-          email: 'joao@example.com',
-          phone: '(21) 98765-4321',
-          temperature: 'hot',
-          leadScore: 85,
-          source: 'Meta Ads',
-          createdAt: '2026-07-23',
-          lastContact: '2026-07-23 14:30',
-        },
-        {
-          id: 'lead-2',
-          fullName: 'Maria Santos',
-          email: 'maria@example.com',
-          phone: '(21) 99876-5432',
-          temperature: 'warm',
-          leadScore: 65,
-          source: 'Site',
-          createdAt: '2026-07-22',
-          lastContact: '2026-07-22 10:15',
-        },
-        {
-          id: 'lead-3',
-          fullName: 'Pedro Oliveira',
-          email: 'pedro@example.com',
-          phone: '(21) 91234-5678',
-          temperature: 'cold',
-          leadScore: 35,
-          source: 'WhatsApp',
-          createdAt: '2026-07-21',
-          lastContact: '2026-07-19 09:00',
-        },
-        {
-          id: 'lead-4',
-          fullName: 'Ana Costa',
-          email: 'ana@example.com',
-          phone: '(21) 97654-3210',
-          temperature: 'hot',
-          leadScore: 90,
-          source: 'Meta Ads',
-          createdAt: '2026-07-23',
-          lastContact: '2026-07-23 16:45',
-        },
-        {
-          id: 'lead-5',
-          fullName: 'Carlos Mendes',
-          email: 'carlos@example.com',
-          phone: '(21) 98765-1234',
-          temperature: 'warm',
-          leadScore: 55,
-          source: 'Indicação',
-          createdAt: '2026-07-20',
-          lastContact: '2026-07-20 13:20',
-        },
-      ];
-
-      setLeads(mockLeads);
-      applyFilters(mockLeads, filters);
-    } catch (error) {
-      console.error('Erro ao carregar leads:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    applyFilters(apiLeads, filters);
+  }, [apiLeads, filters]);
 
   const applyFilters = (data: Lead[], filterState: FilterState) => {
     let result = data;
@@ -185,6 +115,13 @@ export default function LeadsPage() {
 
         {/* Filtros */}
         <LeadsFilters filters={filters} onFilterChange={handleFilterChange} />
+
+        {/* Erro */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg shadow p-4">
+            <p className="text-red-800">⚠️ {error}</p>
+          </div>
+        )}
 
         {/* Tabela */}
         {loading ? (

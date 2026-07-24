@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import KanbanBoard from '@/components/opportunities/KanbanBoard';
+import { useOpportunities } from '@/hooks/useOpportunities';
 
 export interface Opportunity {
   id: string;
@@ -30,6 +31,7 @@ interface KanbanData {
 
 export default function OpportunitiesPage() {
   const router = useRouter();
+  const { opportunities: apiOpportunities, loading, error, moveToStage } = useOpportunities();
   const [kanbanData, setKanbanData] = useState<KanbanData>({
     lead: [],
     contacted: [],
@@ -38,7 +40,6 @@ export default function OpportunitiesPage() {
     negotiation: [],
     closed: [],
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -46,142 +47,28 @@ export default function OpportunitiesPage() {
       router.push('/');
       return;
     }
-
-    fetchOpportunities(token);
   }, [router]);
 
-  const fetchOpportunities = async (token: string) => {
-    try {
-      setLoading(true);
+  useEffect(() => {
+    // Organizar oportunidades por stage
+    const organized: KanbanData = {
+      lead: apiOpportunities.filter((o) => o.stage === 'lead'),
+      contacted: apiOpportunities.filter((o) => o.stage === 'contacted'),
+      qualified: apiOpportunities.filter((o) => o.stage === 'qualified'),
+      proposal: apiOpportunities.filter((o) => o.stage === 'proposal'),
+      negotiation: apiOpportunities.filter((o) => o.stage === 'negotiation'),
+      closed: apiOpportunities.filter((o) => o.stage === 'closed'),
+    };
 
-      // Mock data para desenvolvimento
-      const mockOpportunities: Opportunity[] = [
-        {
-          id: 'opp-1',
-          title: 'Chef Pastry - Turma Jan 2025',
-          leadName: 'João Silva',
-          email: 'joao@example.com',
-          phone: '(21) 98765-4321',
-          stage: 'lead',
-          value: 3500,
-          temperature: 'hot',
-          probability: 10,
-          daysInStage: 2,
-          lastActivity: '2026-07-23',
-        },
-        {
-          id: 'opp-2',
-          title: 'Master Chef - Turma Fev 2025',
-          leadName: 'Ana Costa',
-          email: 'ana@example.com',
-          phone: '(21) 97654-3210',
-          stage: 'contacted',
-          value: 8500,
-          temperature: 'hot',
-          probability: 25,
-          daysInStage: 5,
-          lastActivity: '2026-07-22',
-        },
-        {
-          id: 'opp-3',
-          title: 'Gastronomia Italiana',
-          leadName: 'Maria Santos',
-          email: 'maria@example.com',
-          phone: '(21) 99876-5432',
-          stage: 'qualified',
-          value: 2800,
-          temperature: 'warm',
-          probability: 40,
-          daysInStage: 8,
-          lastActivity: '2026-07-20',
-        },
-        {
-          id: 'opp-4',
-          title: 'Confeitaria Profissional',
-          leadName: 'Pedro Oliveira',
-          email: 'pedro@example.com',
-          phone: '(21) 91234-5678',
-          stage: 'proposal',
-          value: 4200,
-          temperature: 'warm',
-          probability: 60,
-          daysInStage: 10,
-          lastActivity: '2026-07-19',
-        },
-        {
-          id: 'opp-5',
-          title: 'Culinária Francesa',
-          leadName: 'Carlos Mendes',
-          email: 'carlos@example.com',
-          phone: '(21) 98765-1234',
-          stage: 'negotiation',
-          value: 6500,
-          temperature: 'hot',
-          probability: 75,
-          daysInStage: 15,
-          lastActivity: '2026-07-21',
-        },
-        {
-          id: 'opp-6',
-          title: 'Gastronomia Asiática',
-          leadName: 'Lucia Ferreira',
-          email: 'lucia@example.com',
-          phone: '(21) 92345-6789',
-          stage: 'closed',
-          value: 5000,
-          temperature: 'hot',
-          probability: 100,
-          daysInStage: 20,
-          lastActivity: '2026-07-17',
-        },
-        {
-          id: 'opp-7',
-          title: 'Panificação Industrial',
-          leadName: 'Roberto Silva',
-          email: 'roberto@example.com',
-          phone: '(21) 93456-7890',
-          stage: 'contacted',
-          value: 3800,
-          temperature: 'cold',
-          probability: 15,
-          daysInStage: 3,
-          lastActivity: '2026-07-23',
-        },
-      ];
+    setKanbanData(organized);
+  }, [apiOpportunities]);
 
-      // Organizar por stage
-      const organized: KanbanData = {
-        lead: mockOpportunities.filter((o) => o.stage === 'lead'),
-        contacted: mockOpportunities.filter((o) => o.stage === 'contacted'),
-        qualified: mockOpportunities.filter((o) => o.stage === 'qualified'),
-        proposal: mockOpportunities.filter((o) => o.stage === 'proposal'),
-        negotiation: mockOpportunities.filter((o) => o.stage === 'negotiation'),
-        closed: mockOpportunities.filter((o) => o.stage === 'closed'),
-      };
-
-      setKanbanData(organized);
-    } catch (error) {
-      console.error('Erro ao carregar oportunidades:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMoveCard = (
+  const handleMoveCard = async (
     opportunityId: string,
     fromStage: keyof KanbanData,
     toStage: keyof KanbanData
   ) => {
-    setKanbanData((prev) => {
-      const opportunity = prev[fromStage].find((o) => o.id === opportunityId);
-      if (!opportunity) return prev;
-
-      return {
-        ...prev,
-        [fromStage]: prev[fromStage].filter((o) => o.id !== opportunityId),
-        [toStage]: [...prev[toStage], { ...opportunity, stage: toStage as any }],
-      };
-    });
+    await moveToStage(opportunityId, toStage);
   };
 
   // Calcular totais
@@ -231,6 +118,13 @@ export default function OpportunitiesPage() {
             </div>
           </div>
         </div>
+
+        {/* Erro */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg shadow p-4">
+            <p className="text-red-800">⚠️ {error}</p>
+          </div>
+        )}
 
         {/* Kanban Board */}
         {loading ? (

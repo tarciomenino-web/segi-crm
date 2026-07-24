@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import Calendar from '@/components/agenda/Calendar';
 import AgendamentosPanel from '@/components/agenda/AgendamentosPanel';
+import { useAppointments } from '@/hooks/useAppointments';
 
 export interface Agendamento {
   id: string;
@@ -12,9 +13,9 @@ export interface Agendamento {
   leadName: string;
   leadEmail: string;
   leadPhone: string;
-  startTime: string; // HH:mm
-  endTime: string; // HH:mm
-  date: string; // YYYY-MM-DD
+  startTime: string;
+  endTime: string;
+  date: string;
   type: 'consultation' | 'call' | 'demo' | 'meeting';
   status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
   notes: string;
@@ -22,11 +23,11 @@ export interface Agendamento {
 
 export default function AgendaPage() {
   const router = useRouter();
+  const { appointments: apiAppointments, loading, error, updateStatus } = useAppointments();
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -34,111 +35,26 @@ export default function AgendaPage() {
       router.push('/');
       return;
     }
-
-    fetchAgendamentos(token);
   }, [router]);
 
-  const fetchAgendamentos = async (token: string) => {
-    try {
-      setLoading(true);
-
-      // Mock data para desenvolvimento
-      const mockAgendamentos: Agendamento[] = [
-        {
-          id: 'ag-1',
-          title: 'Consulta - Chef Pastry',
-          leadName: 'João Silva',
-          leadEmail: 'joao@example.com',
-          leadPhone: '(21) 98765-4321',
-          startTime: '09:00',
-          endTime: '10:00',
-          date: new Date().toISOString().split('T')[0],
-          type: 'consultation',
-          status: 'confirmed',
-          notes: 'Interessado em turma de janeiro',
-        },
-        {
-          id: 'ag-2',
-          title: 'Ligação - Follow-up',
-          leadName: 'Maria Santos',
-          leadEmail: 'maria@example.com',
-          leadPhone: '(21) 99876-5432',
-          startTime: '11:00',
-          endTime: '11:30',
-          date: new Date().toISOString().split('T')[0],
-          type: 'call',
-          status: 'scheduled',
-          notes: 'Validar interesse',
-        },
-        {
-          id: 'ag-3',
-          title: 'Demo - Master Chef',
-          leadName: 'Ana Costa',
-          leadEmail: 'ana@example.com',
-          leadPhone: '(21) 97654-3210',
-          startTime: '14:00',
-          endTime: '15:00',
-          date: new Date().toISOString().split('T')[0],
-          type: 'demo',
-          status: 'confirmed',
-          notes: 'Aula experimental',
-        },
-        {
-          id: 'ag-4',
-          title: 'Reunião - Corporativo',
-          leadName: 'Pedro Oliveira',
-          leadEmail: 'pedro@example.com',
-          leadPhone: '(21) 91234-5678',
-          startTime: '16:00',
-          endTime: '17:00',
-          date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-          type: 'meeting',
-          status: 'scheduled',
-          notes: 'Treinamento para equipe',
-        },
-        {
-          id: 'ag-5',
-          title: 'Consulta - Gastronomia Italiana',
-          leadName: 'Carlos Mendes',
-          leadEmail: 'carlos@example.com',
-          leadPhone: '(21) 98765-1234',
-          startTime: '10:00',
-          endTime: '11:00',
-          date: new Date(Date.now() + 172800000).toISOString().split('T')[0],
-          type: 'consultation',
-          status: 'scheduled',
-          notes: 'Primeira reunião',
-        },
-      ];
-
-      setAgendamentos(mockAgendamentos);
-    } catch (error) {
-      console.error('Erro ao carregar agendamentos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    setAgendamentos(apiAppointments as Agendamento[]);
+  }, [apiAppointments]);
 
   const agendamentosDoDia = agendamentos
     .filter((a) => a.date === selectedDate)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  const handleConfirm = (id: string) => {
-    setAgendamentos((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'confirmed' } : a))
-    );
+  const handleConfirm = async (id: string) => {
+    await updateStatus(id, 'confirmed');
   };
 
-  const handleCancel = (id: string) => {
-    setAgendamentos((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'cancelled' } : a))
-    );
+  const handleCancel = async (id: string) => {
+    await updateStatus(id, 'cancelled');
   };
 
-  const handleComplete = (id: string) => {
-    setAgendamentos((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'completed' } : a))
-    );
+  const handleComplete = async (id: string) => {
+    await updateStatus(id, 'completed');
   };
 
   return (
@@ -177,6 +93,13 @@ export default function AgendaPage() {
             </p>
           </div>
         </div>
+
+        {/* Erro */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg shadow p-4">
+            <p className="text-red-800">⚠️ {error}</p>
+          </div>
+        )}
 
         {/* Calendário e Painel */}
         {loading ? (
