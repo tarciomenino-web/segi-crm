@@ -25,6 +25,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { label: 'Agenda', href: '/dashboard/agenda', icon: '📅' },
     { label: 'Distribuição', href: '/dashboard/distribution', icon: '🔄' },
     { label: 'Automações', href: '/dashboard/automations', icon: '🤖' },
+    { label: 'Jornadas', href: '/dashboard/journeys', icon: '🎪' },
     { label: 'Integrações', href: '/dashboard/integrations', icon: '🔗' },
     { label: 'WhatsApp', href: '/dashboard/whatsapp', icon: '💬' },
   ];
