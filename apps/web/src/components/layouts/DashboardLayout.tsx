@@ -23,6 +23,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { label: 'Leads', href: '/dashboard/leads', icon: '👥' },
     { label: 'Oportunidades', href: '/dashboard/opportunities', icon: '🎯' },
     { label: 'Agenda', href: '/dashboard/agenda', icon: '📅' },
+    { label: 'Distribuição', href: '/dashboard/distribution', icon: '🔄' },
   ];
 
   return (
