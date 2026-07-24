@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import * as cors from 'cors';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,7 +9,7 @@ async function bootstrap() {
 
   // CORS
   const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3001';
-  app.use(cors({ origin: corsOrigin, credentials: true }));
+  app.enableCors({ origin: corsOrigin, credentials: true });
 
   // Global validation pipe
   app.useGlobalPipes(
