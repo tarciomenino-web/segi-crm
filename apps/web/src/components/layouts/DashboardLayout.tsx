@@ -26,6 +26,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { label: 'Distribuição', href: '/dashboard/distribution', icon: '🔄' },
     { label: 'Automações', href: '/dashboard/automations', icon: '🤖' },
     { label: 'Integrações', href: '/dashboard/integrations', icon: '🔗' },
+    { label: 'WhatsApp', href: '/dashboard/whatsapp', icon: '💬' },
   ];
 
   return (
