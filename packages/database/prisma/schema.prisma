@@ -1,0 +1,971 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ============================================================================
+// CORE MODELS
+// ============================================================================
+
+model Organization {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(100)
+  logoUrl   String?  @db.VarChar(500)
+  website   String?  @db.VarChar(500)
+  emailContact String? @db.VarChar(100)
+  phoneContact String? @db.VarChar(20)
+  countryCode String @default("BR") @db.Char(2)
+  timezone  String @default("America/Sao_Paulo") @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+
+  units Unit[]
+  users User[]
+  roles Role[]
+  leads Lead[]
+  opportunities Opportunity[]
+  conversations Conversation[]
+  tasks Task[]
+  appointments Appointment[]
+  journeyTypes JourneyType[]
+  journeyBookings JourneyBooking[]
+  proposals Proposal[]
+  enrollments Enrollment[]
+  courses Course[]
+  pipelines Pipeline[]
+  leadSources LeadSource[]
+  webhookEvents WebhookEvent[]
+  whatsappInstances WhatsAppInstance[]
+  integrationLogs IntegrationLog[]
+  auditLogs AuditLog[]
+  consentLogs ConsentLog[]
+
+  @@index([createdAt])
+}
+
+model Unit {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  code      String   @db.Char(4)
+  name      String   @db.VarChar(255)
+  slug      String   @db.VarChar(100)
+  address   String?  @db.VarChar(500)
+  city      String?  @db.VarChar(100)
+  state     String?  @db.Char(2)
+  postalCode String? @db.VarChar(10)
+  phone     String?  @db.VarChar(20)
+  email     String?  @db.VarChar(100)
+  managerId String?  @db.Uuid
+  openingTime String?
+  closingTime String?
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  leads Lead[]
+  opportunities Opportunity[]
+  conversations Conversation[]
+  tasks Task[]
+  appointments Appointment[]
+  journeyTypes JourneyType[]
+  journeyBookings JourneyBooking[]
+  journeySession JourneySession[]
+  proposals Proposal[]
+  enrollments Enrollment[]
+  classes Class[]
+  whatsappInstances WhatsAppInstance[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([code])
+}
+
+// ============================================================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================================================
+
+model User {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  email     String   @db.VarChar(255)
+  emailVerifiedAt DateTime?
+  fullName  String   @db.VarChar(255)
+  avatarUrl String?  @db.VarChar(500)
+  phone     String?  @db.VarChar(20)
+  passwordHash String @db.VarChar(255)
+  preferredUnitId String? @db.Uuid
+  isActive  Boolean @default(true)
+  blockedUntil DateTime?
+  failedLoginAttempts Int @default(0)
+  lastLoginAt DateTime?
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecretEncrypted String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+  deletedAt DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  userRoles UserRole[]
+  leads Lead[]
+  opportunities Opportunity[]
+  conversations Conversation[]
+  tasks Task[]
+  assignments Assignment[]
+  journeyBookings JourneyBooking[]
+  proposals Proposal[]
+  enrollments Enrollment[]
+  auditLogs AuditLog[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+}
+
+model Role {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  name      String   @db.VarChar(100)
+  description String?
+  isSystem  Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  rolePermissions RolePermission[]
+  userRoles UserRole[]
+
+  @@unique([organizationId, name])
+}
+
+model Permission {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  action    String   @db.VarChar(100)
+  subject   String   @db.VarChar(100)
+  conditions Json?
+  description String?
+  createdAt DateTime @default(now())
+
+  rolePermissions RolePermission[]
+}
+
+model RolePermission {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roleId    String   @db.Uuid
+  permissionId String @db.Uuid
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model UserRole {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  roleId    String   @db.Uuid
+  unitId    String?  @db.Uuid
+  assignedAt DateTime @default(now())
+  assignedBy String?  @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, unitId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+// ============================================================================
+// LEADS
+// ============================================================================
+
+model LeadSource {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  code      String   @db.VarChar(50)
+  name      String   @db.VarChar(255)
+  channel   String?  @db.VarChar(100)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  leads Lead[]
+
+  @@unique([organizationId, code])
+}
+
+model Lead {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String?  @db.Uuid
+  fullName  String   @db.VarChar(255)
+  preferredName String? @db.VarChar(100)
+  phoneE164 String?  @db.VarChar(15)
+  phoneRaw  String?  @db.VarChar(20)
+  secondaryPhone String? @db.VarChar(20)
+  email     String?  @db.VarChar(255)
+  birthDate DateTime?
+  city      String?  @db.VarChar(100)
+  neighborhood String? @db.VarChar(100)
+  state     String?  @db.Char(2)
+  postalCode String? @db.VarChar(10)
+  occupation String? @db.VarChar(100)
+  educationLevel String? @db.VarChar(50)
+  incomeRange String? @db.VarChar(50)
+  preferredShift String? @db.VarChar(50)
+  preferredContactChannel String? @db.VarChar(50)
+  bestContactTime String? @db.VarChar(50)
+
+  courseInterestId String? @db.Uuid
+  unitInterestId String? @db.Uuid
+  leadTemperature String? @db.VarChar(20)
+  leadScore Int @default(0)
+
+  sourceId String? @db.Uuid
+  sourceDetail String? @db.VarChar(255)
+  channel String?  @db.VarChar(100)
+  campaignId String? @db.VarChar(100)
+  campaignName String? @db.VarChar(255)
+  adsetId String?  @db.VarChar(100)
+  adsetName String? @db.VarChar(255)
+  adId      String?  @db.VarChar(100)
+  adName    String?  @db.VarChar(255)
+  formId    String?  @db.VarChar(100)
+  formName  String?  @db.VarChar(255)
+  metaLeadId String? @db.VarChar(100)
+
+  utmSource String?  @db.VarChar(100)
+  utmMedium String?  @db.VarChar(100)
+  utmCampaign String? @db.VarChar(255)
+  utmContent String?  @db.VarChar(255)
+  utmTerm String?  @db.VarChar(255)
+  fbclid    String?  @db.VarChar(255)
+  gclid     String?  @db.VarChar(255)
+
+  pageUrl   String?  @db.VarChar(500)
+  landingPage String? @db.VarChar(500)
+  referrer  String?  @db.VarChar(500)
+
+  consentStatus String? @db.VarChar(50)
+  doNotContact Boolean @default(false)
+  optOutReason String?
+
+  firstTouchAt DateTime?
+  lastTouchAt DateTime?
+  firstSourceId String? @db.Uuid
+  lastSourceId String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+  deletedAt DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit? @relation(fields: [unitId], references: [id])
+  source LeadSource? @relation(fields: [sourceId], references: [id])
+  opportunities Opportunity[]
+  conversations Conversation[]
+  tasks Task[]
+  journeyBookings JourneyBooking[]
+  proposals Proposal[]
+  enrollments Enrollment[]
+  consentLogs ConsentLog[]
+
+  @@unique([organizationId, phoneE164])
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([phoneE164])
+  @@index([email])
+  @@index([metaLeadId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// OPPORTUNITIES & FUNIS
+// ============================================================================
+
+model Pipeline {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String?  @db.Uuid
+  name      String   @db.VarChar(255)
+  description String?
+  code      String?  @db.VarChar(50)
+  isDefault Boolean @default(false)
+  order     Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  stages PipelineStage[]
+  opportunities Opportunity[]
+
+  @@unique([organizationId, code])
+}
+
+model PipelineStage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pipelineId String  @db.Uuid
+  name      String   @db.VarChar(255)
+  description String?
+  order     Int
+  probabilityWin Int @default(0)
+  isFinalStage Boolean @default(false)
+  isLostStage Boolean @default(false)
+  allowSkip Boolean @default(false)
+  requiresFields Json?
+  createdAt DateTime @default(now())
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  opportunities Opportunity[]
+  history OpportunityStageHistory[]
+
+  @@index([pipelineId])
+}
+
+model Opportunity {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+  leadId    String   @db.Uuid
+  pipelineId String  @db.Uuid
+  stageId   String   @db.Uuid
+
+  courseId String?  @db.Uuid
+  sdrId    String?  @db.Uuid
+  closerId String?  @db.Uuid
+
+  estimatedValue Decimal? @db.Decimal(10, 2)
+  probability Int @default(0)
+  temperature String? @db.VarChar(20)
+
+  expectedCloseDate DateTime?
+  wonAt DateTime?
+  lostAt DateTime?
+  lostReasonId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id])
+  stage PipelineStage @relation(fields: [stageId], references: [id])
+  sdr User? @relation(fields: [sdrId], references: [id])
+  tasks Task[]
+  stageHistory OpportunityStageHistory[]
+  journeyBookings JourneyBooking[]
+  proposals Proposal[]
+
+  @@index([organizationId, unitId])
+  @@index([leadId])
+  @@index([sdrId])
+  @@index([stageId])
+}
+
+model OpportunityStageHistory {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  opportunityId String @db.Uuid
+  fromStageId String? @db.Uuid
+  toStageId String   @db.Uuid
+  notes     String?
+  movedAt   DateTime @default(now())
+  movedBy   String   @db.Uuid
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id])
+  fromStage PipelineStage? @relation("from", fields: [fromStageId], references: [id])
+  toStage PipelineStage @relation("to", fields: [toStageId], references: [id])
+
+  @@index([opportunityId])
+}
+
+// ============================================================================
+// CONVERSATIONS & MESSAGES
+// ============================================================================
+
+model Conversation {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+  leadId    String   @db.Uuid
+  opportunityId String? @db.Uuid
+
+  channel   String   @db.VarChar(50)
+  externalConversationId String? @db.VarChar(255)
+
+  assignedTo String?  @db.Uuid
+  assignedAt DateTime?
+
+  status    String @default("open") @db.VarChar(50)
+  unreadCount Int @default(0)
+  lastMessageAt DateTime?
+  lastMessageFrom String? @db.VarChar(50)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id])
+  assignedUser User? @relation(fields: [assignedTo], references: [id])
+  messages Message[]
+
+  @@unique([organizationId, channel, externalConversationId])
+  @@index([organizationId, unitId])
+  @@index([leadId])
+  @@index([assignedTo])
+  @@index([status])
+}
+
+model Message {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  conversationId String @db.Uuid
+
+  senderType String   @db.VarChar(50)
+  senderId  String?  @db.Uuid
+  senderName String?  @db.VarChar(255)
+  senderPhone String? @db.VarChar(20)
+
+  messageType String @default("text") @db.VarChar(50)
+  content   String?
+  externalMessageId String?
+
+  isInternal Boolean @default(false)
+
+  status    String @default("received") @db.VarChar(50)
+  sentAt    DateTime?
+  deliveredAt DateTime?
+  readAt    DateTime?
+  errorMessage String?
+
+  createdAt DateTime @default(now())
+  createdBy String?  @db.Uuid
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  attachments MessageAttachment[]
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@index([isInternal])
+}
+
+model MessageAttachment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId String   @db.Uuid
+
+  fileName  String   @db.VarChar(255)
+  fileSize  Int?
+  mimeType  String?  @db.VarChar(100)
+  filePath  String?  @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================================
+// TASKS & ASSIGNMENTS
+// ============================================================================
+
+model Task {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+  leadId    String   @db.Uuid
+  opportunityId String? @db.Uuid
+
+  title     String   @db.VarChar(255)
+  description String?
+  taskType  String?  @db.VarChar(50)
+
+  assignedTo String  @db.Uuid
+  assignedAt DateTime @default(now())
+  assignedBy String  @db.Uuid
+
+  dueAt     DateTime
+  priority  String @default("normal") @db.VarChar(50)
+  status    String @default("pending") @db.VarChar(50)
+
+  completedAt DateTime?
+  completionNotes String?
+  completedBy String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id])
+  assignedUser User @relation(fields: [assignedTo], references: [id])
+
+  @@index([organizationId, unitId])
+  @@index([assignedTo])
+  @@index([dueAt])
+  @@index([status])
+}
+
+model Appointment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+  leadId    String   @db.Uuid
+  opportunityId String? @db.Uuid
+
+  appointmentType String? @db.VarChar(50)
+  title     String   @db.VarChar(255)
+  description String?
+
+  scheduledAt DateTime
+  durationMinutes Int @default(30)
+
+  assignedTo String? @db.Uuid
+
+  status    String @default("pending") @db.VarChar(50)
+  confirmedAt DateTime?
+  confirmedBy String? @db.Uuid
+
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  location  String?  @db.VarChar(500)
+  locationUrl String? @db.VarChar(500)
+
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
+  assignedUser User? @relation(fields: [assignedTo], references: [id])
+
+  @@index([organizationId, unitId])
+  @@index([scheduledAt])
+  @@index([assignedTo])
+}
+
+model Assignment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leadId    String   @db.Uuid
+  userId    String   @db.Uuid
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([leadId])
+  @@index([userId])
+}
+
+// ============================================================================
+// JORNADA GRATUITA
+// ============================================================================
+
+model JourneyType {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  name      String   @db.VarChar(255)
+  description String?
+  durationMinutes Int @default(60)
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sessions JourneySession[]
+}
+
+model JourneySession {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+  journeyTypeId String @db.Uuid
+
+  scheduledDate DateTime
+  startTime String
+  endTime   String
+
+  maxCapacity Int @default(20)
+  currentCapacity Int @default(0)
+
+  instructorId String? @db.Uuid
+  location  String?  @db.VarChar(500)
+  notes     String?
+
+  isCancelled Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit Unit @relation(fields: [unitId], references: [id])
+  journeyType JourneyType @relation(fields: [journeyTypeId], references: [id])
+  bookings JourneyBooking[]
+
+  @@index([journeyTypeId])
+  @@index([scheduledDate])
+}
+
+model JourneyBooking {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+
+  leadId    String   @db.Uuid
+  opportunityId String? @db.Uuid
+  sessionId String   @db.Uuid
+
+  sdrId     String?  @db.Uuid
+  closerId  String?  @db.Uuid
+
+  status    String @default("pending") @db.VarChar(50)
+
+  confirmedAt DateTime?
+  confirmedBy String? @db.Uuid
+
+  attendedAt DateTime?
+  noShowAt  DateTime?
+  cancelledAt DateTime?
+  cancellationReason String?
+
+  notes     String?
+  rescheduleCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id])
+  session JourneySession @relation(fields: [sessionId], references: [id])
+  sdr User? @relation(fields: [sdrId], references: [id])
+
+  @@index([sessionId])
+  @@index([leadId])
+  @@index([status])
+}
+
+// ============================================================================
+// SALES & ENROLLMENTS
+// ============================================================================
+
+model Proposal {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+  opportunityId String @db.Uuid
+
+  code      String   @db.VarChar(50)
+
+  courseId  String   @db.Uuid
+  grossValue Decimal @db.Decimal(10, 2)
+  discountValue Decimal @default(0) @db.Decimal(10, 2)
+  finalValue Decimal @db.Decimal(10, 2)
+  entryValue Decimal? @db.Decimal(10, 2)
+
+  installmentCount Int @default(1)
+  installmentValue Decimal? @db.Decimal(10, 2)
+
+  paymentMethod String? @db.VarChar(100)
+
+  validUntil DateTime?
+  status    String @default("draft") @db.VarChar(50)
+
+  viewedAt  DateTime?
+  acceptedAt DateTime?
+  rejectedAt DateTime?
+
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
+  enrollments Enrollment[]
+
+  @@unique([organizationId, code])
+  @@index([opportunityId])
+}
+
+model Enrollment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+
+  leadId    String   @db.Uuid
+  opportunityId String? @db.Uuid
+  proposalId String? @db.Uuid
+
+  enrollmentCode String @db.VarChar(50)
+  courseId String   @db.Uuid
+  classId   String?  @db.Uuid
+
+  closerId  String?  @db.Uuid
+
+  enrollmentDate DateTime
+  startDate DateTime?
+
+  grossValue Decimal @db.Decimal(10, 2)
+  discountValue Decimal @default(0) @db.Decimal(10, 2)
+  netValue  Decimal @db.Decimal(10, 2)
+  entryValue Decimal? @db.Decimal(10, 2)
+
+  installmentCount Int @default(1)
+
+  paymentMethod String? @db.VarChar(100)
+
+  status    String @default("active") @db.VarChar(50)
+
+  externalEnrollmentId String? @db.VarChar(100)
+
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+  deletedAt DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id])
+  proposal Proposal? @relation(fields: [proposalId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
+  class Class? @relation(fields: [classId], references: [id])
+  closer User? @relation(fields: [closerId], references: [id])
+
+  @@unique([organizationId, enrollmentCode])
+  @@index([organizationId, unitId])
+  @@index([leadId])
+  @@index([courseId])
+}
+
+// ============================================================================
+// COURSES
+// ============================================================================
+
+model Course {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+
+  name      String   @db.VarChar(255)
+  description String?
+  durationHours Int?
+
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  classes Class[]
+  proposals Proposal[]
+  enrollments Enrollment[]
+
+  @@index([organizationId])
+}
+
+model Class {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+  courseId  String   @db.Uuid
+
+  code      String   @db.VarChar(50)
+  name      String   @db.VarChar(255)
+
+  instructorId String? @db.Uuid
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  capacity  Int?
+  shift     String?  @db.VarChar(50)
+
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit Unit @relation(fields: [unitId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
+  enrollments Enrollment[]
+
+  @@unique([organizationId, code])
+  @@index([courseId])
+}
+
+// ============================================================================
+// INTEGRATIONS
+// ============================================================================
+
+model WebhookEvent {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+
+  provider  String   @db.VarChar(100)
+  eventType String   @db.VarChar(100)
+  eventId   String   @db.VarChar(255)
+
+  payload   Json
+
+  status    String @default("pending") @db.VarChar(50)
+  errorMessage String?
+
+  processedAt DateTime?
+  retryCount Int @default(0)
+  nextRetryAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, provider, eventId])
+  @@index([provider])
+  @@index([status])
+}
+
+model WhatsAppInstance {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String   @db.Uuid
+
+  name      String   @db.VarChar(255)
+  provider  String   @db.VarChar(50)
+
+  externalInstanceId String? @db.VarChar(255)
+  phoneNumber String? @db.VarChar(20)
+  displayName String? @db.VarChar(255)
+
+  status    String @default("disconnected") @db.VarChar(50)
+  connectionStatus String?
+
+  tokenEncrypted String? @db.VarChar(500)
+  apiUrl    String?  @db.VarChar(500)
+  webhookSecretEncrypted String?
+
+  lastConnectedAt DateTime?
+  lastDisconnectedAt DateTime?
+  lastHealthCheckAt DateTime?
+
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  @db.Uuid
+  updatedBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+
+  @@index([organizationId, unitId])
+  @@index([status])
+}
+
+model IntegrationLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+
+  integrationType String?
+  action    String?  @db.VarChar(100)
+
+  status    String?  @db.VarChar(50)
+  statusCode Int?
+  errorMessage String?
+
+  request   Json?
+  response  Json?
+
+  durationMs Int?
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// AUDIT & COMPLIANCE
+// ============================================================================
+
+model AuditLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  unitId    String?  @db.Uuid
+
+  actorId   String   @db.Uuid
+  action    String   @db.VarChar(100)
+
+  entityType String   @db.VarChar(100)
+  entityId  String   @db.Uuid
+
+  before    Json?
+  after     Json?
+
+  ipAddress String?  @db.VarChar(45)
+  userAgent String?  @db.VarChar(500)
+  correlationId String? @db.VarChar(100)
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([organizationId, entityType, entityId])
+  @@index([createdAt])
+}
+
+model ConsentLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @db.Uuid
+  leadId    String   @db.Uuid
+
+  consentType String? @db.VarChar(100)
+  status    String?  @db.VarChar(50)
+
+  source    String?  @db.VarChar(100)
+
+  createdAt DateTime @default(now())
+  createdBy String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  lead Lead @relation(fields: [leadId], references: [id])
+
+  @@index([leadId])
+}
