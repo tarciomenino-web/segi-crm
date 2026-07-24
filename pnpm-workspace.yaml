@@ -1,0 +1,9 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+shared-workspace-lockfile: true
+
+pnpm:
+  overrides:
+    typescript: ^5.3.3
