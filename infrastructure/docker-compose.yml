@@ -55,6 +55,56 @@ services:
     networks:
       - segi-crm-network
 
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    container_name: segi-crm-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/segi-crm
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/segi-crm
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: your-secret-key-change-in-production
+      JWT_REFRESH_SECRET: your-refresh-secret-change-in-production
+      PORT: 3000
+      ENCRYPTION_KEY: your-encryption-key-32-chars-min
+      META_WEBHOOK_TOKEN: your-meta-token-here
+      UAZAPI_TOKEN: your-uazapi-token-here
+      UAZAPI_INSTANCE: your-uazapi-instance-here
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../apps/api/src:/app/apps/api/src
+      - ../apps/api/dist:/app/apps/api/dist
+    networks:
+      - segi-crm-network
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    container_name: segi-crm-web
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "3001:3001"
+    volumes:
+      - ../apps/web/src:/app/apps/web/src
+      - ../apps/web/public:/app/apps/web/public
+    networks:
+      - segi-crm-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
